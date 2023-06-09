@@ -21,6 +21,7 @@ export const LoggedOut = () => {
   const [passwordLogin, setPasswordLogin] = useState("");
   const [emailLogin, setEmailLogin] = useState("");
   const [password, setPassword] = useState("");
+  const [errorLogin, setErrorLogin] = useState(false);
   const [email, setEmail] = useState("");
   const [cp, setCp] = useState("");
   const [errorState, setErrorState] = useState(0);
@@ -28,13 +29,14 @@ export const LoggedOut = () => {
     useCreateUserWithEmailAndPassword(auth);
   const [signInWithEmailAndPassword, user1, loading1, error1] =
     useSignInWithEmailAndPassword(auth);
-  const SignUp = () => {
+  const SignUp = async () => {
     if (cp != password) setErrorState(1);
     else if (error) setErrorState(2);
     else {
-      createUserWithEmailAndPassword(email, password)
+      await createUserWithEmailAndPassword(email, password)
         .then((userCredential) => {
           const user = userCredential.user;
+          console.log(userCredential);
           return updateProfile(user, { displayName: displayNameC });
         })
         .then(() => {
@@ -48,11 +50,28 @@ export const LoggedOut = () => {
     }
     if (!loading) navigate("/home");
   };
-  const Login = () => {
-    signInWithEmailAndPassword(emailLogin, passwordLogin);
-    if (!loading1) navigate("/home");
+  const Login = async () => {
+    setErrorLogin(false);
+
+    await signInWithEmailAndPassword(emailLogin.trim(), passwordLogin.trim())
+      .then((userCredential) => {
+        if (userCredential) navigate("/home");
+      })
+      .catch();
+    {
+      setErrorLogin(true);
+    }
   };
-  const Error = () => {
+
+  const ErrorLogin = () => {
+    return (
+      <div>
+        <p>{Error_Text[error1.message]}</p>
+      </div>
+    );
+  };
+
+  const ErrorSignUp = () => {
     switch (errorState) {
       case 1:
         return (
@@ -113,6 +132,7 @@ export const LoggedOut = () => {
                   </div>
                 </form>
               </div>
+              {errorLogin && ErrorLogin()}
               <div className="btn_login_wrap">
                 <button className="btn_login" onClick={() => Login()}>
                   {!loading1 ? "Login" : <Loader className="spinner" />}
@@ -172,7 +192,7 @@ export const LoggedOut = () => {
                       placeholder="Username"
                       onChange={(e) => setDisplayName(e.target.value)}
                     />
-                    {Error()}
+                    {ErrorSignUp()}
                     <button
                       className="btn-signup px-16 py-2 bg-wageningen_green text-white font-bold rounded text-lg my-3"
                       onClick={() => SignUp()}

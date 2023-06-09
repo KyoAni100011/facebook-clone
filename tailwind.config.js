@@ -7,6 +7,7 @@ module.exports = {
         gainsboro: "#E1DEDA",
         wageningen_green: "#42b72a",
         granite_gray: "#606770",
+        blue_facebook: "#2D86FF",
       },
     },
   },

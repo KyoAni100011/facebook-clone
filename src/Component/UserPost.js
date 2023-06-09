@@ -18,20 +18,22 @@ import {
   collection,
   onSnapshot,
   serverTimestamp,
+  getDocs,
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export const UserPost = () => {
   const [posts, setPosts] = useState([]);
-  const [images, setImage] = useState("");
+  const [imagesUpPost, setImageUpPost] = useState("");
   const [user, loading1, error] = useAuthState(auth);
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
-  const [imgInfo, setImgInfo] = useState();
+  const [imgInfoUpPost, setImgInfoUpPost] = useState();
   const [emoji, setEmoji] = useState();
   const colRef = collection(firestore, "Post");
   const storage = getStorage();
   const [emojiState, setEmojiState] = useState(false);
+  const [isUploadFile, setUploadFile] = useState(false);
 
   const [isOpen, setStatePopup] = useState(false);
   const [contentPost, setContentPost] = useState("");
@@ -44,39 +46,23 @@ export const UserPost = () => {
 
   useEffect(() => {
     const collectionRef = collection(firestore, "Post");
-
-    // Đăng ký một "onSnapshot" listener để theo dõi thay đổi trong collection
+    let arr = [];
     const unsubscribe = onSnapshot(collectionRef, async (snapshot) => {
       const promises = [];
 
-      // Lặp qua các documents trong snapshot và lấy dữ liệu
       snapshot.forEach((doc) => {
         const item = doc.data();
         const id = doc._document.key.path.segments[6];
 
-        // Kiểm tra và xử lý URL tải xuống cho hình ảnh
         item["id"] = id;
-        if (item.image !== undefined && item.image !== "") {
-          const promise = getDownloadURL(ref(storage, `images/${item.image}`))
-            .then((url) => ({ ...item, image: url }))
-            .catch((error) => {
-              console.log("Error", error);
-              return item;
-            });
-          promises.push(promise);
-        } else {
-          promises.push(Promise.resolve(item));
-        }
+
+        promises.push(Promise.resolve(item));
       });
 
-      try {
-        const updatedData = await Promise.all(promises);
-        setPosts(updatedData);
-      } catch (error) {
-        console.log("Error", error);
-      } finally {
-        setLoading(false);
-      }
+      const arr = await Promise.all(promises);
+
+      setPosts(arr);
+      setUploadFile(true);
     });
     // Cleanup function để hủy đăng ký khi component bị unmount
     return () => {
@@ -93,23 +79,36 @@ export const UserPost = () => {
           payload: {
             displayname: user.displayName,
             content: contentPost,
-            image: images,
+            image: imagesUpPost,
           },
         })
       );
-
-      const storageRef = ref(storage, `images/${images}`);
-      await addDoc(collection(firestore, "Post"), {
-        displayname: user.displayName,
-        content: contentPost,
-        image: images,
-        timestamp: time,
-      });
+      if (imagesUpPost != "") {
+        const storageRef = ref(storage, `images/${imagesUpPost}`);
+        await uploadBytes(storageRef, imgInfoUpPost).then(async () => {
+          await getDownloadURL(storageRef).then(async (url) => {
+            await addDoc(collection(firestore, "Post"), {
+              displayname: user.displayName,
+              content: contentPost,
+              image: url,
+              timestamp: time,
+              like: 0,
+            });
+          });
+        });
+      } else {
+        await addDoc(collection(firestore, "Post"), {
+          displayname: user.displayName,
+          content: contentPost,
+          timestamp: time,
+          like: 0,
+        });
+      }
       setContentPost("");
-      setImgInfo("");
-      handlePopup();
-      await uploadBytes(storageRef, imgInfo);
+      setImgInfoUpPost("");
+      setImageUpPost("");
       setLoading(false);
+      handlePopup();
     } catch (error) {
       console.log("Error creating post:", error);
     }
@@ -124,26 +123,25 @@ export const UserPost = () => {
     setEmojiState(!emojiState);
   };
 
-  function showPreview(event) {
+  function showPreviewUpPost(event) {
     if (event.target.files != undefined) {
       if (event.target.files.length > 0) {
         var src = URL.createObjectURL(event.target.files[0]);
-        console.log(event.target.files[0].name);
-        setImage(event.target.files[0].name);
-        setImgInfo(event.target.files[0]);
-        var preview = document.getElementById("file-preview");
-        document.getElementsByClassName("img_upload")[0].classList.add("h-80");
+        console.log(src);
+        setImageUpPost(event.target.files[0].name);
+        setImgInfoUpPost(event.target.files[0]);
+        var preview = document.getElementById("file-preview-up-post");
         document
-          .getElementsByClassName("img_upload")[0]
+          .getElementsByClassName("img_upload_up_post")[0]
+          .classList.add("h-80");
+        document
+          .getElementsByClassName("img_upload_up_post")[0]
           .classList.add("overflow-y-scroll");
-        preview.src = src;
         event.target.value = "";
-        return event.target.files[0];
+        preview.src = src;
       }
     }
   }
-
-  console.log(contentPost);
 
   return (
     <div className="container_post">
@@ -175,6 +173,7 @@ export const UserPost = () => {
               <div className="line w-full border-t-2 border-gainsboro-800 mt-6 mb-3"></div>
               <div className="text_input">
                 <div class="form-group">
+                  {console.log(posts)}
                   <textarea
                     className="form-control w-full px-2"
                     name=""
@@ -186,8 +185,8 @@ export const UserPost = () => {
                   ></textarea>
                 </div>
               </div>
-              <div className="img_upload">
-                <img id="file-preview"></img>
+              <div className="img_upload_up_post">
+                <img id="file-preview-up-post"></img>
               </div>
               <div className="tool flex items-center justify-between">
                 <div className="btn_upload_image my-2">
@@ -197,8 +196,7 @@ export const UserPost = () => {
                     className="hidden"
                     accept="image/*"
                     onChange={(e) => {
-                      console.log("sdsd");
-                      showPreview(e);
+                      showPreviewUpPost(e);
                     }}
                   />
                   <label
@@ -229,7 +227,11 @@ export const UserPost = () => {
         </div>
       </div>
       <div className="content">
-        {posts.length != 0 ? (
+        {!isUploadFile ? (
+          <div className="loader flex justify-center">
+            <Loader className="spinner mt-10" height="100" width="100" />
+          </div>
+        ) : posts.length != 0 ? (
           posts.map((item, key) => {
             return (
               <PostForm
@@ -242,13 +244,13 @@ export const UserPost = () => {
                   .toString()
                   .replace("GMT+0700 (Indochina Time)", "")}
                 id={item.id}
+                user={item.displayName}
+                like={item.like}
               ></PostForm>
             );
           })
         ) : (
-          <div className="loader flex justify-center">
-            <Loader className="spinner mt-10" height="100" width="100" />
-          </div>
+          <div className="no_post">No Post</div>
         )}
       </div>
     </div>

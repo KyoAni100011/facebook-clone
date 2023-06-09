@@ -4,11 +4,17 @@ import { MdScreenShare, MdOutlinePeopleOutline } from "react-icons/md";
 import { FaStore } from "react-icons/fa";
 import { SiYoutubegaming } from "react-icons/si";
 import { BsMessenger } from "react-icons/bs";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { UserPost } from "../Component/UserPost";
 import { FaUserAlt } from "react-icons/fa";
+import { useSignOut } from "react-firebase-hooks/auth";
+import { auth } from "../firebase";
+import { useState } from "react";
 
 export const Home = () => {
+  const [signOut, loading, error] = useSignOut(auth);
+  const [showMenuUser, setShowMenuUser] = useState(false);
+  const navigator = useNavigate();
   return (
     <div className="container h-screen">
       <nav>
@@ -81,9 +87,27 @@ export const Home = () => {
             <div className="message mr-3">
               <BsMessenger></BsMessenger>
             </div>
-            <div className="User bg-wageningen_green py-3 px-3 rounded-full">
+            <div
+              className="User bg-wageningen_green py-3 px-3 rounded-full"
+              onClick={() => setShowMenuUser(!showMenuUser)}
+            >
               <FaUserAlt></FaUserAlt>
             </div>
+            {showMenuUser && (
+              <div className="menu_user absolute bottom-0 top-16">
+                <button
+                  onClick={async () => {
+                    const success = await signOut();
+                    navigator("/");
+                    if (success) {
+                      alert("You are sign out");
+                    }
+                  }}
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </nav>

@@ -496,3 +496,8 @@ textarea {
 .App .container .body_content .container_post .content .spinner path {
   stroke: #578843;
 }
+
+#btn_showCMT:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
